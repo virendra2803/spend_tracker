@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spend Tracker</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 10px;
+            margin: 5px;
+        }
+
+        input {
+            width: 180px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .summary {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .summary div {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            min-width: 180px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .message {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Spend Tracker</h1>
+
+    <!-- Add Expense -->
+    <div class="card">
+        <h2>Add Expense</h2>
+
+        <form id="expenseForm">
+
+            <input
+                type="number"
+                id="amount"
+                placeholder="Amount"
+                step="0.01"
+                min="0.01"
+                required
+            >
+
+            <input
+                type="text"
+                id="category"
+                placeholder="Category"
+                required
+            >
+
+            <input
+                type="text"
+                id="note"
+                placeholder="Note"
+            >
+
+            <input
+                type="date"
+                id="date"
+                required
+            >
+
+            <button type="submit">Add Expense</button>
+
+        </form>
+
+        <div id="message" class="message"></div>
+    </div>
+
+
+    <!-- Summary -->
+    <div class="card">
+        <h2>Summary</h2>
+
+        <div class="summary">
+
+            <div>
+                <strong>Total Spend</strong>
+                <p id="totalSpend">₹0</p>
+            </div>
+
+            <div>
+                <strong>Current Month</strong>
+                <p id="currentMonthSpend">₹0</p>
+            </div>
+
+            <div>
+                <strong>Previous Month</strong>
+                <p id="previousMonthSpend">₹0</p>
+            </div>
+
+            <div>
+                <strong>Month-over-Month</strong>
+                <p id="monthChange">N/A</p>
+            </div>
+
+        </div>
+
+        <h3>Spend by Category</h3>
+        <ul id="categoryList"></ul>
+    </div>
+
+
+    <!-- Expenses -->
+    <div class="card">
+
+        <h2>Expenses</h2>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+
+            <tbody id="expenseTable">
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <script>
+
+        const API_URL = "http://127.0.0.1:8000";
+
+
+        // Add expense
+        document
+            .getElementById("expenseForm")
+            .addEventListener("submit", async function(event) {
+
+                event.preventDefault();
+
+                const expense = {
+                    amount: Number(document.getElementById("amount").value),
+                    category: document.getElementById("category").value,
+                    note: document.getElementById("note").value || null,
+                    date: document.getElementById("date").value
+                };
+
+                try {
+
+                    const response = await fetch(
+                        `${API_URL}/expenses`,
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+
+                            body: JSON.stringify(expense)
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Failed to add expense");
+                    }
+
+                    document.getElementById("message").textContent =
+                        "Expense added successfully!";
+
+                    document.getElementById("expenseForm").reset();
+
+                    loadExpenses();
+                    loadSummary();
+
+                } catch (error) {
+
+                    document.getElementById("message").textContent =
+                        error.message;
+
+                }
+
+            });
+
+
+        // Load expenses
+        async function loadExpenses() {
+
+            const response = await fetch(
+                `${API_URL}/expenses`
+            );
+
+            const expenses = await response.json();
+
+            const table =
+                document.getElementById("expenseTable");
+
+            table.innerHTML = "";
+
+            expenses.forEach(expense => {
+
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${expense.date}</td>
+                    <td>${expense.category}</td>
+                    <td>₹${expense.amount}</td>
+                    <td>${expense.note || ""}</td>
+                `;
+
+                table.appendChild(row);
+
+            });
+
+        }
+
+
+        // Load summary
+        async function loadSummary() {
+
+            const response = await fetch(
+                `${API_URL}/summary`
+            );
+
+            const summary = await response.json();
+
+            document.getElementById("totalSpend").textContent =
+                `₹${summary.total_spend}`;
+
+            document.getElementById("currentMonthSpend").textContent =
+                `₹${summary.current_month_spend}`;
+
+            document.getElementById("previousMonthSpend").textContent =
+                `₹${summary.previous_month_spend}`;
+
+            document.getElementById("monthChange").textContent =
+                summary.month_over_month_change_percent === null
+                    ? "N/A"
+                    : `${summary.month_over_month_change_percent.toFixed(2)}%`;
+
+
+            const categoryList =
+                document.getElementById("categoryList");
+
+            categoryList.innerHTML = "";
+
+            for (const category in summary.spend_by_category) {
+
+                const item = document.createElement("li");
+
+                item.textContent =
+                    `${category}: ₹${summary.spend_by_category[category]}`;
+
+                categoryList.appendChild(item);
+            }
+
+        }
+
+
+        // Load data when page opens
+        loadExpenses();
+        loadSummary();
+
+    </script>
+
+</body>
+</html>

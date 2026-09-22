@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import date
 
 from fastapi import Depends, FastAPI, Query
@@ -11,6 +12,13 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Spend Tracker API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
